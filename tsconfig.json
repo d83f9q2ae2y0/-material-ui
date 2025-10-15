@@ -1,0 +1,725 @@
+    $qb = $this->createQueryBuilder('t')
+            ->select(
+                't.id',
+                't.name',
+                'l.name as location',
+                'COUNT(tm.id) as messages',
+                'ts.name as status'
+            )
+            ->leftJoin('t.location', 'l')
+            ->leftJoin('t.ticketMessages', 'tm')
+            ->leftJoin('t.ticketStatus', 'ts')
+            ->groupBy('t.id', 'l.name', 'ts.name')
+            ->orderBy('t.id', 'DESC');
+
+        return $qb->getQuery()->getResult();
+
+
+import React, { useState } from 'react';
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Avatar,
+  Chip,
+  Button,
+  TextField,
+  Divider,
+  Stack,
+  Paper,
+  IconButton,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+} from '@mui/material';
+import {
+  Email,
+  AccessTime,
+  Update,
+  Send,
+  Close,
+  Phone,
+  Lock,
+} from '@mui/icons-material';
+
+interface User {
+  username: string;
+  photo?: string;
+  email: string;
+}
+
+interface Message {
+  id: string;
+  content: string;
+  author: User;
+  date: Date;
+}
+
+interface SupportTicketProps {
+  user: User;
+  title: string;
+  comment: string;
+  createdAt: Date;
+  updatedAt: Date;
+  status: 'open' | 'in-progress' | 'resolved' | 'closed';
+  messageHistory: Message[];
+  onRespond?: (message: string, newStatus: string) => void;
+  onCallBack?: () => void;
+  onCloseTicket?: () => void;
+  currentUserId?: string;
+}
+
+const SupportTicket: React.FC<SupportTicketProps> = ({
+  user,
+  title,
+  comment,
+  createdAt,
+  updatedAt,
+  status,
+  messageHistory,
+  onRespond,
+  onCallBack,
+  onCloseTicket,
+  currentUserId = 'current-user',
+}) => {
+  const [isResponding, setIsResponding] = useState(false);
+  const [responseText, setResponseText] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState(status);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'open':
+        return 'error';
+      case 'in-progress':
+        return 'warning';
+      case 'resolved':
+        return 'success';
+      case 'closed':
+        return 'default';
+      default:
+        return 'default';
+    }
+  };
+
+  const formatDate = (date: Date) => {
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  };
+
+  const handleSendResponse = () => {
+    if (responseText.trim() && onRespond) {
+      onRespond(responseText, selectedStatus);
+      setResponseText('');
+      setIsResponding(false);
+    }
+  };
+
+  const isCurrentUser = (authorEmail: string) => {
+    return authorEmail === currentUserId;
+  };
+
+  return (
+    <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
+      <Card elevation={3}>
+        <CardContent>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Avatar
+                src={user.photo}
+                alt={user.username}
+                sx={{ width: 56, height: 56 }}
+              >
+                {user.username.charAt(0).toUpperCase()}
+              </Avatar>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  {user.username}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
+                  <Email sx={{ fontSize: 16 }} />
+                  <Typography variant="body2">{user.email}</Typography>
+                </Box>
+              </Box>
+            </Box>
+            <Chip
+              label={status.toUpperCase().replace('-', ' ')}
+              color={getStatusColor(status)}
+              sx={{ fontWeight: 600 }}
+            />
+          </Box>
+
+          <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
+            {title}
+          </Typography>
+
+          <Paper elevation={0} sx={{ bgcolor: 'grey.50', p: 2, mb: 3, borderRadius: 2 }}>
+            <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+              {comment}
+            </Typography>
+          </Paper>
+
+          <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
+              <AccessTime sx={{ fontSize: 18 }} />
+              <Typography variant="caption">
+                Created: {formatDate(createdAt)}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
+              <Update sx={{ fontSize: 18 }} />
+              <Typography variant="caption">
+                Updated: {formatDate(updatedAt)}
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+            <Button
+              variant="outlined"
+              startIcon={<Phone />}
+              onClick={onCallBack}
+              fullWidth
+            >
+              Call Back
+            </Button>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<Lock />}
+              onClick={onCloseTicket}
+              fullWidth
+            >
+              Close Ticket
+            </Button>
+          </Box>
+
+          {messageHistory.length > 0 && (
+            <>
+              <Divider sx={{ my: 3 }} />
+              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                Conversation
+              </Typography>
+              <Stack spacing={2} sx={{ mb: 3 }}>
+                {messageHistory.map((message) => {
+                  const isOwn = isCurrentUser(message.author.email);
+                  return (
+                    <Box
+                      key={message.id}
+                      sx={{
+                        display: 'flex',
+                        flexDirection: isOwn ? 'row-reverse' : 'row',
+                        alignItems: 'flex-end',
+                        gap: 1,
+                      }}
+                    >
+                      <Avatar
+                        src={message.author.photo}
+                        alt={message.author.username}
+                        sx={{ width: 32, height: 32 }}
+                      >
+                        {message.author.username.charAt(0).toUpperCase()}
+                      </Avatar>
+                      <Box
+                        sx={{
+                          maxWidth: '70%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: isOwn ? 'flex-end' : 'flex-start',
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            px: 1,
+                            mb: 0.5,
+                            color: 'text.secondary',
+                            fontWeight: 500,
+                          }}
+                        >
+                          {message.author.username}
+                        </Typography>
+                        <Paper
+                          elevation={0}
+                          sx={{
+                            p: 1.5,
+                            bgcolor: isOwn ? 'primary.main' : 'grey.100',
+                            color: isOwn ? 'primary.contrastText' : 'text.primary',
+                            borderRadius: 2.5,
+                            borderTopRightRadius: isOwn ? 0 : 2.5,
+                            borderTopLeftRadius: isOwn ? 2.5 : 0,
+                          }}
+                        >
+                          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                            {message.content}
+                          </Typography>
+                        </Paper>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            px: 1,
+                            mt: 0.5,
+                            color: 'text.secondary',
+                            fontSize: '0.7rem',
+                          }}
+                        >
+                          {formatDate(message.date)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Stack>
+            </>
+          )}
+
+          <Divider sx={{ my: 3 }} />
+
+          {!isResponding ? (
+            <Button
+              variant="contained"
+              startIcon={<Send />}
+              onClick={() => setIsResponding(true)}
+              size="large"
+              fullWidth
+              sx={{ py: 1.5 }}
+            >
+              Respond to Ticket
+            </Button>
+          ) : (
+            <Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  Your Response
+                </Typography>
+                <IconButton size="small" onClick={() => setIsResponding(false)}>
+                  <Close />
+                </IconButton>
+              </Box>
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                placeholder="Type your response here..."
+                value={responseText}
+                onChange={(e) => setResponseText(e.target.value)}
+                variant="outlined"
+                sx={{ mb: 2 }}
+              />
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel>Update Status</InputLabel>
+                <Select
+                  value={selectedStatus}
+                  label="Update Status"
+                  onChange={(e) => setSelectedStatus(e.target.value as any)}
+                >
+                  <MenuItem value="open">Open</MenuItem>
+                  <MenuItem value="in-progress">In Progress</MenuItem>
+                  <MenuItem value="resolved">Resolved</MenuItem>
+                  <MenuItem value="closed">Closed</MenuItem>
+                </Select>
+              </FormControl>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Button
+                  variant="contained"
+                  startIcon={<Send />}
+                  onClick={handleSendResponse}
+                  disabled={!responseText.trim()}
+                  fullWidth
+                >
+                  Send Response
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setIsResponding(false);
+                    setResponseText('');
+                    setSelectedStatus(status);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </Box>
+            </Box>
+          )}
+        </CardContent>
+      </Card>
+    </Box>
+  );
+};
+
+export default SupportTicket;
+
+
+
+import React, { useState } from 'react';
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Avatar,
+  Chip,
+  Button,
+  TextField,
+  Divider,
+  Stack,
+  Paper,
+  IconButton,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+} from '@mui/material';
+import {
+  Email,
+  AccessTime,
+  Update,
+  Send,
+  Close,
+  Phone,
+  Lock,
+} from '@mui/icons-material';
+
+interface User {
+  username: string;
+  photo?: string;
+  email: string;
+}
+
+interface SymfonyDate {
+  date: string;
+  timezone: string;
+}
+
+interface Message {
+  id: string;
+  content: string;
+  author: User;
+  date: Date | SymfonyDate | string;
+}
+
+interface SupportTicketProps {
+  user: User;
+  title: string;
+  comment: string;
+  createdAt: Date | SymfonyDate | string;
+  updatedAt: Date | SymfonyDate | string;
+  status: 'open' | 'in-progress' | 'resolved' | 'closed';
+  messageHistory: Message[];
+  onRespond?: (message: string, newStatus: string) => void;
+  onCallBack?: () => void;
+  onCloseTicket?: () => void;
+  currentUserId?: string;
+}
+
+const SupportTicket: React.FC<SupportTicketProps> = ({
+  user,
+  title,
+  comment,
+  createdAt,
+  updatedAt,
+  status,
+  messageHistory,
+  onRespond,
+  onCallBack,
+  onCloseTicket,
+  currentUserId = 'current-user',
+}) => {
+  const [isResponding, setIsResponding] = useState(false);
+  const [responseText, setResponseText] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState(status);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'open':
+        return 'error';
+      case 'in-progress':
+        return 'warning';
+      case 'resolved':
+        return 'success';
+      case 'closed':
+        return 'default';
+      default:
+        return 'default';
+    }
+  };
+
+  const parseDate = (dateInput: Date | SymfonyDate | string): Date => {
+    if (dateInput instanceof Date) {
+      return dateInput;
+    }
+    if (typeof dateInput === 'object' && 'date' in dateInput) {
+      const dateStr = dateInput.date;
+      if (dateStr.endsWith('Z') || dateStr.includes('+') || dateStr.includes('T')) {
+        return new Date(dateStr);
+      }
+      return new Date(dateStr + 'Z');
+    }
+    const dateStr = dateInput.toString();
+    if (dateStr.endsWith('Z') || dateStr.includes('+') || dateStr.includes('T')) {
+      return new Date(dateStr);
+    }
+    return new Date(dateStr + 'Z');
+  };
+
+  const formatDate = (dateInput: Date | SymfonyDate | string) => {
+    const date = parseDate(dateInput);
+    return new Intl.DateTimeFormat('default', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    }).format(date);
+  };
+
+  const handleSendResponse = () => {
+    if (responseText.trim() && onRespond) {
+      onRespond(responseText, selectedStatus);
+      setResponseText('');
+      setIsResponding(false);
+    }
+  };
+
+  const isCurrentUser = (authorEmail: string) => {
+    return authorEmail === currentUserId;
+  };
+
+  return (
+    <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
+      <Card elevation={3}>
+        <CardContent>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Avatar
+                src={user.photo}
+                alt={user.username}
+                sx={{ width: 56, height: 56 }}
+              >
+                {user.username.charAt(0).toUpperCase()}
+              </Avatar>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  {user.username}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
+                  <Email sx={{ fontSize: 16 }} />
+                  <Typography variant="body2">{user.email}</Typography>
+                </Box>
+              </Box>
+            </Box>
+            <Chip
+              label={status.toUpperCase().replace('-', ' ')}
+              color={getStatusColor(status)}
+              sx={{ fontWeight: 600 }}
+            />
+          </Box>
+
+          <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
+            {title}
+          </Typography>
+
+          <Paper elevation={0} sx={{ bgcolor: 'grey.50', p: 2, mb: 3, borderRadius: 2 }}>
+            <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+              {comment}
+            </Typography>
+          </Paper>
+
+          <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
+              <AccessTime sx={{ fontSize: 18 }} />
+              <Typography variant="caption">
+                Created: {formatDate(createdAt)}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
+              <Update sx={{ fontSize: 18 }} />
+              <Typography variant="caption">
+                Updated: {formatDate(updatedAt)}
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+            <Button
+              variant="outlined"
+              startIcon={<Phone />}
+              onClick={onCallBack}
+              fullWidth
+            >
+              Call Back
+            </Button>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<Lock />}
+              onClick={onCloseTicket}
+              fullWidth
+            >
+              Close Ticket
+            </Button>
+          </Box>
+
+          {messageHistory.length > 0 && (
+            <>
+              <Divider sx={{ my: 3 }} />
+              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                Conversation
+              </Typography>
+              <Stack spacing={2} sx={{ mb: 3 }}>
+                {messageHistory.map((message) => {
+                  const isOwn = isCurrentUser(message.author.email);
+                  return (
+                    <Box
+                      key={message.id}
+                      sx={{
+                        display: 'flex',
+                        flexDirection: isOwn ? 'row-reverse' : 'row',
+                        alignItems: 'flex-end',
+                        gap: 1,
+                      }}
+                    >
+                      <Avatar
+                        src={message.author.photo}
+                        alt={message.author.username}
+                        sx={{ width: 32, height: 32 }}
+                      >
+                        {message.author.username.charAt(0).toUpperCase()}
+                      </Avatar>
+                      <Box
+                        sx={{
+                          maxWidth: '70%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: isOwn ? 'flex-end' : 'flex-start',
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            px: 1,
+                            mb: 0.5,
+                            color: 'text.secondary',
+                            fontWeight: 500,
+                          }}
+                        >
+                          {message.author.username}
+                        </Typography>
+                        <Paper
+                          elevation={0}
+                          sx={{
+                            p: 1.5,
+                            bgcolor: isOwn ? 'primary.main' : 'grey.100',
+                            color: isOwn ? 'primary.contrastText' : 'text.primary',
+                            borderRadius: 2.5,
+                            borderTopRightRadius: isOwn ? 0 : 2.5,
+                            borderTopLeftRadius: isOwn ? 2.5 : 0,
+                          }}
+                        >
+                          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                            {message.content}
+                          </Typography>
+                        </Paper>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            px: 1,
+                            mt: 0.5,
+                            color: 'text.secondary',
+                            fontSize: '0.7rem',
+                          }}
+                        >
+                          {formatDate(message.date)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Stack>
+            </>
+          )}
+
+          <Divider sx={{ my: 3 }} />
+
+          {!isResponding ? (
+            <Button
+              variant="contained"
+              startIcon={<Send />}
+              onClick={() => setIsResponding(true)}
+              size="large"
+              fullWidth
+              sx={{ py: 1.5 }}
+            >
+              Respond to Ticket
+            </Button>
+          ) : (
+            <Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  Your Response
+                </Typography>
+                <IconButton size="small" onClick={() => setIsResponding(false)}>
+                  <Close />
+                </IconButton>
+              </Box>
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                placeholder="Type your response here..."
+                value={responseText}
+                onChange={(e) => setResponseText(e.target.value)}
+                variant="outlined"
+                sx={{ mb: 2 }}
+              />
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel>Update Status</InputLabel>
+                <Select
+                  value={selectedStatus}
+                  label="Update Status"
+                  onChange={(e) => setSelectedStatus(e.target.value as any)}
+                >
+                  <MenuItem value="open">Open</MenuItem>
+                  <MenuItem value="in-progress">In Progress</MenuItem>
+                  <MenuItem value="resolved">Resolved</MenuItem>
+                  <MenuItem value="closed">Closed</MenuItem>
+                </Select>
+              </FormControl>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Button
+                  variant="contained"
+                  startIcon={<Send />}
+                  onClick={handleSendResponse}
+                  disabled={!responseText.trim()}
+                  fullWidth
+                >
+                  Send Response
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setIsResponding(false);
+                    setResponseText('');
+                    setSelectedStatus(status);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </Box>
+            </Box>
+          )}
+        </CardContent>
+      </Card>
+    </Box>
+  );
+};
+
+export default SupportTicket;
