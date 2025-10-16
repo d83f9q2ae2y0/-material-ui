@@ -159,3 +159,111 @@ public function searchByNameOrBookTitle(string $search): array
 
     return $qb;
 }
+
+
+
+<?php
+
+namespace App\Validator\Constraint;
+
+use Symfony\Component\Validator\Constraint;
+
+#[\Attribute]
+class ValidArray extends Constraint
+{
+    public string $aaaMustBeArrayOfIntegers = 'The "aaa" key must contain an array of integers.';
+    public string $bbbMustBeString = 'The "bbb" key must contain a string.';
+    public string $bothEmpty = 'Either "aaa" (non-empty array) or "bbb" (non-empty string) must be provided.';
+    public string $invalidStructure = 'The array must contain either "aaa" or "bbb" key.';
+
+    public function getTargets(): string
+    {
+        return self::PROPERTY_TARGET;
+    }
+}
+
+
+<?php
+
+namespace App\Validator\Constraint;
+
+use Symfony\Component\Validator\Constraint;
+use Symfony\Component\Validator\ConstraintValidator;
+use Symfony\Component\Validator\Exception\UnexpectedTypeException;
+use Symfony\Component\Validator\Exception\UnexpectedValueException;
+
+class ValidArrayValidator extends ConstraintValidator
+{
+    public function validate($value, Constraint $constraint): void
+    {
+        if (!$constraint instanceof ValidArray) {
+            throw new UnexpectedTypeException($constraint, ValidArray::class);
+        }
+
+        if (null === $value || '' === $value) {
+            return;
+        }
+
+        if (!is_array($value)) {
+            throw new UnexpectedValueException($value, 'array');
+        }
+
+        $hasAaa = array_key_exists('aaa', $value);
+        $hasBbb = array_key_exists('bbb', $value);
+
+        // Check if at least one key exists
+        if (!$hasAaa && !$hasBbb) {
+            $this->context->buildViolation($constraint->invalidStructure)
+                ->addViolation();
+            return;
+        }
+
+        // Validate "aaa" if present
+        if ($hasAaa) {
+            if (!is_array($value['aaa'])) {
+                $this->context->buildViolation($constraint->aaaMustBeArrayOfIntegers)
+                    ->atPath('[aaa]')
+                    ->addViolation();
+            } else {
+                // Validate all elements are integers
+                foreach ($value['aaa'] as $index => $item) {
+                    if (!is_int($item)) {
+                        $this->context->buildViolation($constraint->aaaMustBeArrayOfIntegers)
+                            ->atPath(sprintf('[aaa][%d]', $index))
+                            ->addViolation();
+                    }
+                }
+            }
+        }
+
+        // Validate "bbb" if present
+        if ($hasBbb) {
+            if (!is_string($value['bbb'])) {
+                $this->context->buildViolation($constraint->bbbMustBeString)
+                    ->atPath('[bbb]')
+                    ->addViolation();
+            }
+        }
+
+        // Check if both are effectively empty
+        $aaaEmpty = $hasAaa && (is_array($value['aaa']) && count($value['aaa']) === 0);
+        $bbbEmpty = $hasBbb && (is_string($value['bbb']) && $value['bbb'] === '');
+
+        if ($aaaEmpty && $bbbEmpty) {
+            $this->context->buildViolation($constraint->bothEmpty)
+                ->addViolation();
+        }
+
+        // If only aaa exists and is empty, it's invalid
+        if ($hasAaa && !$hasBbb && $aaaEmpty) {
+            $this->context->buildViolation($constraint->bothEmpty)
+                ->addViolation();
+        }
+
+        // If only bbb exists and is empty, it's invalid
+        if ($hasBbb && !$hasAaa && $bbbEmpty) {
+            $this->context->buildViolation($constraint->bothEmpty)
+                ->addViolation();
+        }
+    }
+}
